@@ -154,7 +154,12 @@ class AlphaZeroPolicy(Policy):
             self._learn_model = torch.compile(self._learn_model)
 
     def _forward_learn(self, inputs: Dict[str, torch.Tensor]) -> Dict[str, float]:
-        inputs = default_collate(inputs)
+        try:
+            inputs = default_collate(inputs)
+        except Exception as e:
+            # print(e)
+            # print(inputs)
+            raise e
         if self._cuda:
             inputs = to_device(inputs, self._device)
         self._learn_model.train()
@@ -255,12 +260,11 @@ class AlphaZeroPolicy(Policy):
         # If it's not present (which will raise a KeyError), None is used instead.
         # This approach is taken to maintain compatibility with the handling of 'katago' related parts of 'alphazero_mcts_ctree' in Go.
         katago_game_state = {env_id: obs[env_id].get('katago_game_state', None) for env_id in ready_env_id}
-        start_player_index = {env_id: obs[env_id]['current_player_index'] for env_id in ready_env_id}
+        # start_player_index = {env_id: obs[env_id]['current_player_index'] for env_id in ready_env_id}
         output = {}
         self._policy_model = self._collect_model
         for env_id in ready_env_id:
-            state_config_for_simulation_env_reset = EasyDict(dict(start_player_index=start_player_index[env_id],
-                                                                  init_state=init_state[env_id],
+            state_config_for_simulation_env_reset = EasyDict(dict(init_state=init_state[env_id],
                                                                   katago_policy_init=False,
                                                                   katago_game_state=katago_game_state[env_id]))
             action, mcts_probs = self._collect_mcts.get_next_action(state_config_for_simulation_env_reset, self._policy_value_fn, self._collect_mcts_temperature, True)
@@ -316,12 +320,11 @@ class AlphaZeroPolicy(Policy):
         # If it's not present (which will raise a KeyError), None is used instead.
         # This approach is taken to maintain compatibility with the handling of 'katago' related parts of 'alphazero_mcts_ctree' in Go.
         katago_game_state = {env_id: obs[env_id].get('katago_game_state', None) for env_id in ready_env_id}
-        start_player_index = {env_id: obs[env_id]['current_player_index'] for env_id in ready_env_id}
+        # start_player_index = {env_id: obs[env_id]['current_player_index'] for env_id in ready_env_id}
         output = {}
         self._policy_model = self._eval_model
         for env_id in ready_env_id:
-            state_config_for_simulation_env_reset = EasyDict(dict(start_player_index=start_player_index[env_id],
-                                                                  init_state=init_state[env_id],
+            state_config_for_simulation_env_reset = EasyDict(dict(init_state=init_state[env_id],
                                                                   katago_policy_init=False,
                                                                   katago_game_state=katago_game_state[env_id]))
             action, mcts_probs = self._eval_mcts.get_next_action(
@@ -364,6 +367,11 @@ class AlphaZeroPolicy(Policy):
             else:
                 raise NotImplementedError
             self.simulate_env = Connect4Env(connect4_alphazero_config.env)
+        elif self._cfg.simulation_env_name == 'santa_env':
+            import puzzle_env
+            from puzzle_env import SantaEnv
+            from zoo.board_games.santa_env.config.santa_config import santa_alpha_zero_config
+            self.simulate_env = SantaEnv(santa_alpha_zero_config.env)
         else:
             raise NotImplementedError
 

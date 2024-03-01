@@ -329,6 +329,8 @@ class PredictionNetwork(nn.Module):
             - logit (:obj:`torch.Tensor`): :math:`(B, N)`, where B is batch size, N is action space size.
             - value (:obj:`torch.Tensor`): :math:`(B, 1)`, where B is batch size.
         """
+        # time = x[1]
+        # x = x[0]
         for block in self.resblocks:
             x = block(x)
 

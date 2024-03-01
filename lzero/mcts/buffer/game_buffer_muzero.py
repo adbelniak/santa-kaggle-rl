@@ -663,7 +663,7 @@ class MuZeroGameBuffer(GameBuffer):
                             target_policies.append(distributions)
                         else:
                             # for board games that have two players.
-                            policy_tmp = [0 for _ in range(policy_shape)]
+                            policy_tmp = np.zeros(policy_shape)
                             for index, legal_action in enumerate(legal_actions[policy_index]):
                                 # only the action in ``legal_action`` the policy logits is nonzero
                                 policy_tmp[legal_action] = distributions[index]
@@ -671,11 +671,14 @@ class MuZeroGameBuffer(GameBuffer):
                     else:
                         # NOTE: the invalid padding target policy, O is to make sure the correspoding cross_entropy_loss=0
                         policy_mask.append(0)
-                        target_policies.append([0 for _ in range(policy_shape)])
+                        target_policies.append(np.zeros(policy_shape))
 
                     policy_index += 1
-
                 batch_target_policies_non_re.append(target_policies)
+        # for i in batch_target_policies_non_re:
+        #     print(type(i))
+        #     print(len(i))
+        # print(batch_target_policies_non_re)
         batch_target_policies_non_re = np.asarray(batch_target_policies_non_re)
         return batch_target_policies_non_re
 

@@ -30,7 +30,7 @@ class Node(object):
         checking if the node is the root node, and determining if it is a leaf node.
     """
 
-    def __init__(self, parent: "Node" = None, prior_p: float = 1.0) -> None:
+    def __init__(self, parent: "Node" = None, prior_p: float = 1.0, reward=0) -> None:
         """
         Overview:
             Initialize a Node object.
@@ -49,6 +49,7 @@ class Node(object):
         self._value_sum = 0
         # The prior probability of selecting this node.
         self.prior_p = prior_p
+        self.reward = reward
 
     @property
     def value(self) -> float:
@@ -100,14 +101,16 @@ class Node(object):
             self._parent.update_recursive(-leaf_value, mcts_mode)
         if mcts_mode == 'play_with_bot_mode':
             # Update the current node's information.
-            self.update(leaf_value)
+            self.update(0.98 * leaf_value +  self.reward)
             # If the current node is the root node, return.
             if self.is_root():
                 return
             # Update the parent node's information recursively. In ``play_with_bot_mode``, since the nodes' values
             # are always evaluated from the perspective of the agent player, there is no need to negate the value
             # during value propagation.
-            self._parent.update_recursive(leaf_value, mcts_mode)
+            # self._parent.update_recursive(leaf_value + 0.98 * self.reward, mcts_mode)
+            self._parent.update_recursive(leaf_value , mcts_mode)
+            # self._parent.update_recursive(leaf_value , mcts_mode)
 
     def is_leaf(self) -> bool:
         """
@@ -218,9 +221,8 @@ class MCTS(object):
 
         # Create a new root node for the MCTS search.
         root = Node()
-
         self.simulate_env.reset(
-                start_player_index=state_config_for_simulate_env_reset.start_player_index,
+                # start_player_index=state_config_for_simulate_env_reset.start_player_index,
                 init_state=state_config_for_simulate_env_reset.init_state,
             )
         # Expand the root node by adding children to it.
@@ -234,7 +236,7 @@ class MCTS(object):
         for n in range(self._num_simulations):
             # Initialize the simulated environment and reset it to the root node.
             self.simulate_env.reset(
-                start_player_index=state_config_for_simulate_env_reset.start_player_index,
+                # start_player_index=state_config_for_simulate_env_reset.start_player_index,
                 init_state=state_config_for_simulate_env_reset.init_state,
             )
             # Set the battle mode adopted by the environment during the MCTS process.
@@ -305,25 +307,30 @@ class MCTS(object):
             # of the current node is player 1, the value output by the network represents the goodness of the current
             # game state from the perspective of player 1.
             leaf_value = self._expand_leaf_node(node, simulate_env, policy_forward_fn)
+            node.reward = simulate_env.reward
         else:
-            if simulate_env.mcts_mode == 'self_play_mode':
-                # In a tie game, the value corresponding to a terminal node is 0.
-                if winner == -1:
-                    leaf_value = 0
-                else:
-                    # To maintain consistency with the perspective of the neural network, the value of a terminal
-                    # node is also calculated from the perspective of the current_player of the terminal node,
-                    # which is convenient for subsequent updates.
-                    leaf_value = 1 if simulate_env.current_player == winner else -1
+            if hasattr(simulate_env, 'env_type') and simulate_env.env_type == 'not_board_games':
+                # leaf_value = simulate_env.reward
+                leaf_value = 0
+            else:
+                if simulate_env.mcts_mode == 'self_play_mode':
+                    # In a tie game, the value corresponding to a terminal node is 0.
+                    if winner == -1:
+                        leaf_value = 0
+                    else:
+                        # To maintain consistency with the perspective of the neural network, the value of a terminal
+                        # node is also calculated from the perspective of the current_player of the terminal node,
+                        # which is convenient for subsequent updates.
+                        leaf_value = 1 if simulate_env.current_player == winner else -1
 
-            if simulate_env.mcts_mode == 'play_with_bot_mode':
-                # in ``play_with_bot_mode``, the leaf_value should be transformed to the perspective of player 1.
-                if winner == -1:
-                    leaf_value = 0
-                elif winner == 1:
-                    leaf_value = 1
-                elif winner == 2:
-                    leaf_value = -1
+                if simulate_env.mcts_mode == 'play_with_bot_mode':
+                    # in ``play_with_bot_mode``, the leaf_value should be transformed to the perspective of player 1.
+                    if winner == -1:
+                        leaf_value = 0
+                    elif winner == 1:
+                        leaf_value = 1
+                    elif winner == 2:
+                        leaf_value = -1
 
         # Update value and visit count of nodes in this traversal.
         if simulate_env.mcts_mode == 'play_with_bot_mode':
@@ -418,10 +425,14 @@ class MCTS(object):
         # Compute the value of parameter pb_c using the formula of the UCB algorithm.
         pb_c = math.log((parent.visit_count + self._pb_c_base + 1) / self._pb_c_base) + self._pb_c_init
         pb_c *= math.sqrt(parent.visit_count) / (child.visit_count + 1)
-
+        
         # Compute the UCB score by combining the prior score and value score.
         prior_score = pb_c * child.prior_p
-        value_score = child.value
+        if child.visit_count > 0:
+            value_score =child.reward + 0.98 * child.value
+        else:
+            value_score = 0
+        # value_score = child.value
         return prior_score + value_score
 
     def _add_exploration_noise(self, node: Node) -> None:

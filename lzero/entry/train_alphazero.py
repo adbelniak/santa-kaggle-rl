@@ -49,7 +49,7 @@ def train_alphazero(
         cfg.policy.device = 'cuda'
     else:
         cfg.policy.device = 'cpu'
-
+        
     cfg = compile_config(cfg, seed=seed, env=None, auto=True, create_cfg=create_cfg, save_cfg=True)
     # Create main components: env, policy
     env_fn, collector_env_cfg, evaluator_env_cfg = get_vec_env_setting(cfg.env)
@@ -76,6 +76,7 @@ def train_alphazero(
         policy=policy.collect_mode,
         tb_logger=tb_logger,
         exp_name=cfg.exp_name,
+        collect_print_freq=10
     )
     evaluator = AlphaZeroEvaluator(
         eval_freq=cfg.policy.eval_freq,

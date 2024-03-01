@@ -204,7 +204,9 @@ class AlphaZeroCollector(ISerialCollector):
         return_data = []
         ready_env_id = set()
         remain_episode = n_episode
-
+        # import cProfile
+        # pr = cProfile.Profile()
+        # pr.enable()
         while True:
             with self._timer:
                 # Get current env obs.
@@ -254,7 +256,7 @@ class AlphaZeroCollector(ISerialCollector):
                         transitions = to_tensor_transitions(self._traj_buffer[env_id])
                         # reward_shaping
                         transitions = self.reward_shaping(transitions, timestep.info['eval_episode_return'])
-
+                        # print([t['action'] for t in transitions])
                         return_data.append(transitions)
                         self._traj_buffer[env_id].clear()
 
@@ -276,7 +278,9 @@ class AlphaZeroCollector(ISerialCollector):
 
             if collected_episode >= n_episode:
                 break
-
+        # pr.disable()
+        # # pr.print_stats(sort='tottime')
+        # pr.dump_stats('stat.prof')
         collected_duration = sum([d['time'] for d in self._episode_info])
         # reduce data when enables DDP
         if self._world_size > 1:
@@ -339,6 +343,7 @@ class AlphaZeroCollector(ISerialCollector):
             envstep_count = sum([d['step'] for d in self._episode_info])
             duration = sum([d['time'] for d in self._episode_info])
             episode_reward = [d['reward'] for d in self._episode_info]
+            # print(f'tutaj {episode_reward}')
             self._total_duration += duration
             info = {
                 'episode_count': episode_count,
@@ -372,13 +377,20 @@ class AlphaZeroCollector(ISerialCollector):
         Return:
             - transitions: data transitions.
         """
+        discount = 0.98
+        td_steps = 5
         reward = transitions[-1]['reward']
         to_play = transitions[-1]['obs']['to_play']
-        for t in transitions:
+        for ind, t in enumerate(transitions):
+            # bootstrap_index = ind + td_steps
+            value=0
+            for i, trans in enumerate(transitions[ind:]):
+                value += trans['reward'] * discount**i 
+
             if t['obs']['to_play'] == -1:
                 # play_with_bot_mode
                 # the eval_episode_return is calculated from Player 1's perspective
-                t['reward'] = eval_episode_return
+                t['reward'] = value
             else:
                 # self_play_mode
                 if t['obs']['to_play'] == to_play:

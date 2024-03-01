@@ -203,6 +203,10 @@ class RepresentationNetwork(nn.Module):
             - output (:obj:`torch.Tensor`): :math:`(B, C_out, W_, H_)`, where B is batch size, C_out is channel, W_ is \
                 output width, H_ is output height.
         """
+        # print(x.shape)
+        # time = x[:, 1]
+        # x = x[:, 0]
+        # print(x.shape)
         if self.downsample:
             x = self.downsample_net(x)
         else:

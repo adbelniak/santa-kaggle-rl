@@ -20,7 +20,7 @@ from lzero.policy.utils import pad_and_get_lengths, compute_entropy
 class SampledAlphaZeroPolicy(Policy):
     """
     Overview:
-        The policy class for Sampled AlphaZero.
+        The policy class for2.
     """
 
     # The default_config for AlphaZero policy.
